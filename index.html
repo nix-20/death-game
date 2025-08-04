@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Death Game Quiz</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #111; color: #eee; margin:0; padding:0; }
+  #login, #quiz, #ban { max-width: 600px; margin: 30px auto; padding: 20px; background: #222; border-radius: 8px; }
+  button { padding: 10px 20px; margin: 10px; cursor: pointer; background: #444; color: #eee; border:none; border-radius: 5px; font-size: 16px;}
+  button:hover { background: #666; }
+  #timer { font-size: 20px; font-weight: bold; }
+  #leaderboard { position: fixed; top: 10px; right: 10px; background: #222; padding: 10px; width: 250px; border-radius: 8px; font-size: 14px;}
+  #leaderboard h3 { margin-top: 0; text-align: center; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <h2>Inserisci il tuo nome per iniziare</h2>
+  <input type="text" id="usernameInput" placeholder="Il tuo nome" />
+  <button id="startBtn">Inizia</button>
+</div>
+
+<div id="quiz" style="display:none;">
+  <div id="timer">Tempo rimasto: 30</div>
+  <h2 id="question"></h2>
+  <button id="btnA"></button>
+  <button id="btnB"></button>
+</div>
+
+<div id="ban" style="display:none;">
+  <h2>Sei bannato per 30 secondi!</h2>
+  <div id="banTimer">30</div>
+</div>
+
+<div id="leaderboard">
+  <h3>Top 10 Veloci</h3>
+  <ol id="leaderList"></ol>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAKMYg3K90aPNRUn65a3Hsk1nwnZVFv6Iw",
+  authDomain: "death-game-666c9.firebaseapp.com",
+  projectId: "death-game-666c9",
+  storageBucket: "death-game-666c9.firebasestorage.app",
+  messagingSenderId: "254600705396",
+  appId: "1:254600705396:web:5b2775ca03f2776c546821"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const quizzes = [
+  {q:"Ti svegli in una cella. Vuoi uscire?", A:"Sì", B:"No", correct:"A"},
+  {q:"Un corridoio buio. Procedi?", A:"Avanza", B:"Torna indietro", correct:"A"},
+  {q:"Trovi una porta chiusa. Forzarla?", A:"Sì", B:"No", correct:"B"},
+  {q:"Vedi una chiave. Prenderla?", A:"Sì", B:"No", correct:"A"},
+  {q:"Un'ombra si muove. Scappi?", A:"Sì", B:"No", correct:"B"},
+  {q:"Trovi una scala. Salire?", A:"Sì", B:"No", correct:"A"},
+  {q:"Incontri un guardiano. Parli?", A:"Sì", B:"No", correct:"B"},
+  {q:"C'è una stanza con un enigma. Risolvi?", A:"Sì", B:"No", correct:"A"},
+  {q:"Trovi una lanterna. Accenderla?", A:"Sì", B:"No", correct:"A"},
+  {q:"Il pavimento scricchiola. Passi sopra?", A:"Sì", B:"No", correct:"B"},
+  {q:"Una voce sussurra. Ascoltare?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un ponte sospeso. Attraversarlo?", A:"Sì", B:"No", correct:"A"},
+  {q:"Vedi un forziere. Aprirlo?", A:"Sì", B:"No", correct:"B"},
+  {q:"Una trappola si attiva. Saltarla?", A:"Sì", B:"No", correct:"A"},
+  {q:"Trovi un passaggio segreto. Entrare?", A:"Sì", B:"No", correct:"A"},
+  {q:"Sentinella in vista. Nascondersi?", A:"Sì", B:"No", correct:"A"},
+  {q:"Il sole tramonta. Cercare riparo?", A:"Sì", B:"No", correct:"A"},
+  {q:"Un libro antico. Leggerlo?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un pozzo profondo. Scendere?", A:"Sì", B:"No", correct:"B"},
+  {q:"Una melodia dolce. Seguirla?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un cane feroce. Combatterlo?", A:"Sì", B:"No", correct:"B"},
+  {q:"Trovi una pistola. Prenderla?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un lago tranquillo. Nuotare?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un cibo sconosciuto. Mangiarlo?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un vecchio amico. Fidarsi?", A:"Sì", B:"No", correct:"B"},
+  {q:"Una chiave d'oro. Usarla?", A:"Sì", B:"No", correct:"A"},
+  {q:"Una scala di corda. Salire?", A:"Sì", B:"No", correct:"A"},
+  {q:"Un telefono. Rispondere?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un'auto con motore acceso. Entrare?", A:"Sì", B:"No", correct:"B"},
+  {q:"Una lettera anonima. Leggerla?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un labirinto. Entrare?", A:"Sì", B:"No", correct:"A"},
+  {q:"Una mappa. Seguirla?", A:"Sì", B:"No", correct:"A"},
+  {q:"Un fiume. Attraversarlo?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un coltello. Prenderlo?", A:"Sì", B:"No", correct:"A"},
+  {q:"Una radio. Accenderla?", A:"Sì", B:"No", correct:"B"},
+  {q:"Una porta socchiusa. Entrare?", A:"Sì", B:"No", correct:"B"},
+  {q:"Una statua. Muoverla?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un cancello aperto. Passare?", A:"Sì", B:"No", correct:"A"},
+  {q:"Una grotta oscura. Esplorarla?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un fuoco acceso. Avvicinarsi?", A:"Sì", B:"No", correct:"A"},
+  {q:"Un'arma carica. Usarla?", A:"Sì", B:"No", correct:"B"},
+  {q:"Una trappola scattata. Scappare?", A:"Sì", B:"No", correct:"A"},
+  {q:"Una luce lontana. Andarci?", A:"Sì", B:"No", correct:"A"},
+  {q:"Un serpente. Evitarlo?", A:"Sì", B:"No", correct:"A"},
+  {q:"Un ponte rotto. Saltarlo?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un uomo anziano. Aiutarlo?", A:"Sì", B:"No", correct:"A"},
+  {q:"Un segnale di fumo. Seguirlo?", A:"Sì", B:"No", correct:"B"},
+  {q:"Una fonte d'acqua. Bere?", A:"Sì", B:"No", correct:"B"},
+  {q:"Un passaggio stretto. Attraversarlo?", A:"Sì", B:"No", correct:"A"},
+  {q:"Un falò. Spegnerlo?", A:"Sì", B:"No", correct:"B"},
+];
+
+let username = "";
+let currentQuiz = 0;
+let timer = 30;
+let intervalId;
+let banTimer = 30;
+let banIntervalId;
+let startTime;
+let endTime;
+let totalTime;
+
+const loginDiv = document.getElementById('login');
+const quizDiv = document.getElementById('quiz');
+const banDiv = document.getElementById('ban');
+
+const usernameInput = document.getElementById('usernameInput');
+const startBtn = document.getElementById('startBtn');
+
+const questionEl = document.getElementById('question');
+const btnA = document.getElementById('btnA');
+const btnB = document.getElementById('btnB');
+const timerEl = document.getElementById('timer');
+
+const banTimerEl = document.getElementById('banTimer');
+
+const leaderList = document.getElementById('leaderList');
+
+startBtn.onclick = () => {
+  const val = usernameInput.value.trim();
+  if(val.length < 2) {
+    alert("Inserisci un nome valido (min 2 caratteri)");
+    return;
+  }
+  username = val;
+  loginDiv.style.display = "none";
+  quizDiv.style.display = "block";
+  currentQuiz = 0;
+  startTime = Date.now();
+  showQuestion();
+  startTimer();
+  loadLeaderboard();
+};
+
+function showQuestion() {
+  if(currentQuiz >= quizzes.length) {
+    endQuiz();
+    return;
+  }
+  const q = quizzes[currentQuiz];
+  questionEl.textContent = q.q;
+  btnA.textContent = "A) " + q.A;
+  btnB.textContent = "B) " + q.B;
+}
+
+btnA.onclick = () => answer('A');
+btnB.onclick = () => answer('B');
+
+function answer(selected) {
+  clearInterval(intervalId);
+  if(selected === quizzes[currentQuiz].correct) {
+    currentQuiz++;
+    if(currentQuiz === quizzes.length) {
+      endQuiz();
+      return;
+    }
+    timer = 30;
+    showQuestion();
+    startTimer();
+  } else {
+    // Ban for 30 seconds
+    banUser();
+  }
+}
+
+function startTimer() {
+  timer = 30;
+  timerEl.textContent = `Tempo rimasto: ${timer}`;
+  intervalId = setInterval(() => {
+    timer--;
+    timerEl.textContent = `Tempo rimasto: ${timer}`;
+    if(timer <= 0) {
+      clearInterval(intervalId);
+      banUser();
+    }
+  }, 1000);
+}
+
+function banUser() {
+  quizDiv.style.display = "none";
+  banDiv.style.display = "block";
+  banTimer = 30;
+  banTimerEl.textContent = banTimer;
+  banIntervalId = setInterval(() => {
+    banTimer--;
+    banTimerEl.textContent = banTimer;
+    if(banTimer <= 0) {
+      clearInterval(banIntervalId);
+      banDiv.style.display = "none";
+      quizDiv.style.display = "block";
+      startTimer();
+    }
+  }, 1000);
+}
+
+function endQuiz() {
+  endTime = Date.now();
+  totalTime = Math.floor((endTime - startTime) / 1000);
+  alert(`Hai completato i quiz in ${totalTime} secondi!`);
+  saveScore(totalTime);
+  // Riavvia
+  currentQuiz = 0;
+  startTime = Date.now();
+  showQuestion();
+  startTimer();
+  loadLeaderboard();
+}
+
+async function saveScore(time) {
+  try {
+    // Prendi la top 10 più lenta per vedere se puoi entrare
+    const snapshot = await db.collection('leaderboard')
+      .orderBy('time', 'asc')
+      .limit(10)
+      .get();
+
+    let canEnter = false;
+    if(snapshot.size < 10) {
+      canEnter = true;
+    } else {
+      let maxTime = 0;
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        if(d.time > maxTime) maxTime = d.time;
+      });
+      if(time < maxTime) canEnter = true;
+    }
+
+    if(canEnter) {
+      await db.collection('leaderboard').add({
+        name: username,
+        time: time,
+        date: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      alert("Sei entrato nella Top 10!");
+    } else {
+      alert("Non sei nella Top 10, riprova!");
+    }
+  } catch (e) {
+    console.error("Errore salvataggio classifica:", e);
+  }
+}
+
+async function loadLeaderboard() {
+  leaderList.innerHTML = "";
+  try {
+    const snapshot = await db.collection('leaderboard')
+      .orderBy('time', 'asc')
+      .limit(10)
+      .get();
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const li = document.createElement('li');
+      li.textContent = `${data.name}: ${data.time}s`;
+      leaderList.appendChild(li);
+    });
+  } catch (e) {
+    console.error("Errore caricamento classifica:", e);
+  }
+}
+</script>
+
+</body>
+</html>
